@@ -1,109 +1,36 @@
-import pygame
-import random
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Инициализация Pygame
-pygame.init()
+# Задаем размеры изображения
+width, height = 500, 500
 
-# Константы
-WIDTH, HEIGHT = 800, 600
-BALL_RADIUS = 10
-PADDLE_WIDTH, PADDLE_HEIGHT = 100, 10
-BRICK_WIDTH, BRICK_HEIGHT = 75, 20
-FPS = 60
+# Создаем массив для хранения значений пикселей
+image = np.zeros((height, width))
 
-# Цвета
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
+# Определяем границы области отображения
+x_min, x_max = -2.0, 1.0
+y_min, y_max = -1.5, 1.5
 
-# Класс для мяча
-class Ball:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+# Генерируем фрактал Мандельброта
+for x in range(width):
+    for y in range(height):
+        zx, zy = x * (x_max - x_min) / (width - 1) + x_min, y * (y_max - y_min) / (height - 1) + y_min
+        c = complex(zx, zy)
+        z = 0
+        iteration = 0
+        max_iteration = 100
 
-    def move(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        while abs(z) <= 2 and iteration < max_iteration:
+            z = z * z + c
+            iteration += 1
 
-        # Отскок от стен
-        if self.rect.left <= 0 or self.rect.right >= WIDTH:
-            self.speed_x *= -1
-        if self.rect.top <= 0:
-            self.speed_y *= -1
+        # Сохраняем количество итераций в массиве
+        image[y, x] = iteration
 
-    def reset(self):
-        self.rect.center = (WIDTH // 2, HEIGHT // 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
-
-# Класс для ракетки
-class Paddle:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - PADDLE_WIDTH // 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT)
-
-    def move(self, dx):
-        self.rect.x += dx
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
-
-# Класс для кирпичей
-class Brick:
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, BRICK_WIDTH, BRICK_HEIGHT)
-
-# Основная функция игры
-def main():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Arkanoid")
-    clock = pygame.time.Clock()
-
-    ball = Ball()
-    paddle = Paddle()
-    bricks = [Brick(x * (BRICK_WIDTH + 10) + 35, y * (BRICK_HEIGHT + 10) + 30) for x in range(10) for y in range(5)]
-
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.move(-10)
-        if keys[pygame.K_RIGHT]:
-            paddle.move(10)
-
-        ball.move()
-
-        # Проверка на столкновение с ракеткой
-        if ball.rect.colliderect(paddle.rect):
-            ball.speed_y *= -1
-
-        # Проверка на столкновение с кирпичами
-        for brick in bricks[:]:
-            if ball.rect.colliderect(brick.rect):
-                bricks.remove(brick)
-                ball.speed_y *= -1
-
-        # Проверка на падение мяча
-        if ball.rect.top >= HEIGHT:
-            ball.reset()
-
-        # Отрисовка объектов
-        screen.fill(BLACK)
-        pygame.draw.ellipse(screen, WHITE, ball.rect)
-        pygame.draw.rect(screen, WHITE, paddle.rect)
-        for brick in bricks:
-            pygame.draw.rect(screen, RED, brick.rect)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-    pygame.quit()
-
-if __name__ == "__main__":
-    main()
+# Визуализируем фрактал
+plt.imshow(image, extent=(x_min, x_max, y_min, y_max), cmap='hot')
+plt.colorbar()
+plt.title("Фрактал Мандельброта")
+plt.xlabel("Re")
+plt.ylabel("Im")
+plt.show()
