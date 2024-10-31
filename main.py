@@ -1,109 +1,120 @@
-import pygame
-import random
+import tkinter as tk
 
-# Инициализация Pygame
-pygame.init()
 
-# Константы
-WIDTH, HEIGHT = 800, 600
-BALL_RADIUS = 10
-PADDLE_WIDTH, PADDLE_HEIGHT = 100, 10
-BRICK_WIDTH, BRICK_HEIGHT = 75, 20
-FPS = 60
-
-# Цвета
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-
-# Класс для мяча
-class Ball:
+class Game(tk.Tk):
     def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+        super().__init__()
+        self.title("Лабиринт")
+        self.geometry("450x450")
 
-    def move(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        self.maze = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 0, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 0, 1]
+        ]
 
-        # Отскок от стен
-        if self.rect.left <= 0 or self.rect.right >= WIDTH:
-            self.speed_x *= -1
-        if self.rect.top <= 0:
-            self.speed_y *= -1
+        self.player_x = 0
+        self.player_y = 1
+        self.cell_size = 40
 
-    def reset(self):
-        self.rect.center = (WIDTH // 2, HEIGHT // 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+        self.canvas = tk.Canvas(self, width=450, height=450)
+        self.canvas.pack()
 
-# Класс для ракетки
-class Paddle:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - PADDLE_WIDTH // 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT)
+        self.path = []  # Список для хранения пути игрока
 
-    def move(self, dx):
-        self.rect.x += dx
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+        self.bind("<Key>", self.on_key_down)
+        self.draw_maze()
 
-# Класс для кирпичей
-class Brick:
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, BRICK_WIDTH, BRICK_HEIGHT)
+    def draw_maze(self):
+        self.canvas.delete("all")
+        for y in range(len(self.maze)):
+            for x in range(len(self.maze[y])):
+                color = "black" if self.maze[y][x] == 1 else "white"
+                self.canvas.create_rectangle(
+                    x * self.cell_size,
+                    y * self.cell_size,
+                    (x + 1) * self.cell_size,
+                    (y + 1) * self.cell_size,
+                    fill=color
+                )
+                if x == self.player_x and y == self.player_y:
+                    self.canvas.create_rectangle(
+                        x * self.cell_size,
+                        y * self.cell_size,
+                        (x + 1) * self.cell_size,
+                        (y + 1) * self.cell_size,
+                        fill="blue"
+                    )
+                if x == 8 and y == 9:  # Выход
+                    self.canvas.create_rectangle(
+                        x * self.cell_size,
+                        y * self.cell_size,
+                        (x + 1) * self.cell_size,
+                        (y + 1) * self.cell_size,
+                        fill="green"
+                    )
 
-# Основная функция игры
-def main():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Arkanoid")
-    clock = pygame.time.Clock()
 
-    ball = Ball()
-    paddle = Paddle()
-    bricks = [Brick(x * (BRICK_WIDTH + 10) + 35, y * (BRICK_HEIGHT + 10) + 30) for x in range(10) for y in range(5)]
+# Управление
+    def on_key_down(self, event):
+        new_x = self.player_x
+        new_y = self.player_y
 
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+        if event.keysym == "Up":
+            new_y -= 1
+        elif event.keysym == "Down":
+            new_y += 1
+        elif event.keysym == "Left":
+            new_x -= 1
+        elif event.keysym == "Right":
+            new_x += 1
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.move(-10)
-        if keys[pygame.K_RIGHT]:
-            paddle.move(10)
+        if (0 <= new_x < len(self.maze[0]) and 0 <= new_y < len(self.maze) and self.maze[new_y][new_x] == 0):
 
-        ball.move()
+            # Добавляем текущую позицию в путь для отрисовки в конце игры
+            self.path.append((self.player_x, self.player_y))
 
-        # Проверка на столкновение с ракеткой
-        if ball.rect.colliderect(paddle.rect):
-            ball.speed_y *= -1
+            # Обновляем позицию игрока
+            self.player_x = new_x
+            self.player_y = new_y
 
-        # Проверка на столкновение с кирпичами
-        for brick in bricks[:]:
-            if ball.rect.colliderect(brick.rect):
-                bricks.remove(brick)
-                ball.speed_y *= -1
+            # Проверка на выход
+            if (self.player_x == 8 and self.player_y == 9):
+                self.end_game()
+                return
 
-        # Проверка на падение мяча
-        if ball.rect.top >= HEIGHT:
-            ball.reset()
+            # Рисуем путь
+            self.draw_path()
 
-        # Отрисовка объектов
-        screen.fill(BLACK)
-        pygame.draw.ellipse(screen, WHITE, ball.rect)
-        pygame.draw.rect(screen, WHITE, paddle.rect)
-        for brick in bricks:
-            pygame.draw.rect(screen, RED, brick.rect)
+        # Обновляем отрисовку лабиринта и игрока
+        self.draw_maze()
 
-        pygame.display.flip()
-        clock.tick(FPS)
 
-    pygame.quit()
+# Функция для отрисовки проделанного пути
+    def draw_path(self):
+        for (px, py) in self.path:
+            self.canvas.create_rectangle(
+                px * self.cell_size,
+                py * self.cell_size,
+                (px + 1) * self.cell_size,
+                (py + 1) * self.cell_size,
+                fill="red"
+            )
+
+    def end_game(self):
+        # Отображаем путь после достижения выхода
+        self.draw_path()
+        # Отключаем обработку событий клавиатуры
+        self.unbind("<Key>")
+
 
 if __name__ == "__main__":
-    main()
+    game = Game()
+    game.mainloop()
