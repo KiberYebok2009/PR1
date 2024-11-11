@@ -1,109 +1,88 @@
-import pygame
-import random
+def print_maze(maze):
+    for row in maze:
+        print(' '.join(['#' if cell == 1 else ' ' for cell in row]))
 
-# Инициализация Pygame
-pygame.init()
 
-# Константы
-WIDTH, HEIGHT = 800, 600
-BALL_RADIUS = 10
-PADDLE_WIDTH, PADDLE_HEIGHT = 100, 10
-BRICK_WIDTH, BRICK_HEIGHT = 75, 20
-FPS = 60
+def dfs(maze, start, end):
+    stack = [start]
+    visited = set()
+    path = {}
 
-# Цвета
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
+    while stack:
+        current = stack.pop()
 
-# Класс для мяча
-class Ball:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+        if current in visited:
+            continue
 
-    def move(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        visited.add(current)
 
-        # Отскок от стен
-        if self.rect.left <= 0 or self.rect.right >= WIDTH:
-            self.speed_x *= -1
-        if self.rect.top <= 0:
-            self.speed_y *= -1
+        if current == end:
+            break
 
-    def reset(self):
-        self.rect.center = (WIDTH // 2, HEIGHT // 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+        x, y = current
+        neighbors = [(x + dx, y + dy) for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]]
 
-# Класс для ракетки
-class Paddle:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - PADDLE_WIDTH // 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT)
+        for neighbor in neighbors:
+            nx, ny = neighbor
+            if (0 <= nx < len(maze)) and (0 <= ny < len(maze[0])) and (maze[nx][ny] == 0) and (neighbor not in visited):
+                stack.append(neighbor)
+                path[neighbor] = current
 
-    def move(self, dx):
-        self.rect.x += dx
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+    # Восстанавливаем путь
+    real_path = []
+    step = end
 
-# Класс для кирпичей
-class Brick:
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, BRICK_WIDTH, BRICK_HEIGHT)
+    while step in path:
+        real_path.append(step)
+        step = path[step]
 
-# Основная функция игры
+    real_path.append(start)
+    real_path.reverse()
+
+    return real_path
+
+
+def compare_paths(real_path, model_path):
+    return real_path == model_path
+
+
 def main():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Arkanoid")
-    clock = pygame.time.Clock()
+    maze = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1, 0, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+        [1, 0, 1, 1, 1, 1, 1, 0, 1, 1],
+        [1, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 0, 1]
+    ]
 
-    ball = Ball()
-    paddle = Paddle()
-    bricks = [Brick(x * (BRICK_WIDTH + 10) + 35, y * (BRICK_HEIGHT + 10) + 30) for x in range(10) for y in range(5)]
+    print_maze(maze)
 
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    start = (1, 1)
+    end = (9, 8)
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.move(-10)
-        if keys[pygame.K_RIGHT]:
-            paddle.move(10)
+    real_path = [
+        (1, 1), (1, 2), (1, 3), (1, 4), (2, 4), (3, 4),
+        (3, 5), (4, 5), (5, 5), (5, 4), (5, 3), (5, 2),
+        (5, 1), (6, 1), (7, 1), (7, 2), (7, 3), (7, 4),
+        (8, 4), (8, 5), (8, 6), (8, 7), (8, 8), (9, 8)
+    ]
 
-        ball.move()
+    model_path = dfs(maze, start, end)
 
-        # Проверка на столкновение с ракеткой
-        if ball.rect.colliderect(paddle.rect):
-            ball.speed_y *= -1
+    print("Найденный путь:")
+    print(model_path)
 
-        # Проверка на столкновение с кирпичами
-        for brick in bricks[:]:
-            if ball.rect.colliderect(brick.rect):
-                bricks.remove(brick)
-                ball.speed_y *= -1
+    # Сравнение путей
+    if compare_paths(real_path, model_path):
+        print("Найденный путь совпадает с модельным.")
+    else:
+        print("Найденный путь не совпадает с модельным.")
 
-        # Проверка на падение мяча
-        if ball.rect.top >= HEIGHT:
-            ball.reset()
-
-        # Отрисовка объектов
-        screen.fill(BLACK)
-        pygame.draw.ellipse(screen, WHITE, ball.rect)
-        pygame.draw.rect(screen, WHITE, paddle.rect)
-        for brick in bricks:
-            pygame.draw.rect(screen, RED, brick.rect)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-    pygame.quit()
 
 if __name__ == "__main__":
     main()
