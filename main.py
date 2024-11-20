@@ -1,109 +1,100 @@
-import pygame
 import random
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
-# Инициализация Pygame
-pygame.init()
 
-# Константы
-WIDTH, HEIGHT = 800, 600
-BALL_RADIUS = 10
-PADDLE_WIDTH, PADDLE_HEIGHT = 100, 10
-BRICK_WIDTH, BRICK_HEIGHT = 75, 20
-FPS = 60
-
-# Цвета
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-
-# Класс для мяча
-class Ball:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - BALL_RADIUS, HEIGHT // 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
+class Character:
+    def __init__(self, name):
+        self.name = name
+        self.position = 0
+        self.laps_completed = 0
 
     def move(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        speed = random.randint(1, 5)  # скорость от 1 до 5
+        self.position += speed
 
-        # Отскок от стен
-        if self.rect.left <= 0 or self.rect.right >= WIDTH:
-            self.speed_x *= -1
-        if self.rect.top <= 0:
-            self.speed_y *= -1
+    def check_lap(self, lap_length):
+        if self.position >= lap_length:
+            self.laps_completed += 1
+            self.position = 0
 
-    def reset(self):
-        self.rect.center = (WIDTH // 2, HEIGHT // 2)
-        self.speed_x = random.choice([-4, 4])
-        self.speed_y = -4
 
-# Класс для ракетки
-class Paddle:
-    def __init__(self):
-        self.rect = pygame.Rect(WIDTH // 2 - PADDLE_WIDTH // 2, HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT)
+def race(characters, laps_to_complete, lap_length):
+    fig, ax = plt.subplots()
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_aspect('equal')
+    ax.set_title("Гонка персонажей")
 
-    def move(self, dx):
-        self.rect.x += dx
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+    # Создаем круг для гонки
+    circle = plt.Circle((0, 0), 0.9, color='lightgray', fill=False)
+    ax.add_artist(circle)
 
-# Класс для кирпичей
-class Brick:
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, BRICK_WIDTH, BRICK_HEIGHT)
+    # Создаем линии для каждого персонажа
+    lines = [ax.plot([], [], marker='o', label=char.name)[0] for char in characters]
 
-# Основная функция игры
+    # Создаем текстовые аннотации для отображения количества кругов
+    texts = [ax.text(1.05, 0.9 - i * 0.1, f"{char.name}: 0", fontsize=10) for i, char in enumerate(characters)]
+
+    def init():
+        for line in lines:
+            line.set_data([], [])
+        return lines + texts
+
+    def update(frame):
+        for char in characters:
+            char.move()
+            char.check_lap(lap_length)
+
+            # Обновляем позицию на круге
+            angle = (char.position / lap_length) * 2 * np.pi  # Преобразуем позицию в угол
+            x = 0.9 * np.cos(angle)
+            y = 0.9 * np.sin(angle)
+
+            # Обновляем линию для персонажа
+            lines[characters.index(char)].set_data(x, y)
+
+            # Обновляем текстовое отображение количества кругов рядом с именем персонажа
+            texts[characters.index(char)].set_text(f"{char.name}: {char.laps_completed}")
+
+            # Устанавливаем позицию текста рядом с персонажем
+            text_x = 1.05
+            text_y = 0.9 - characters.index(char) * 0.1
+
+            # Обновляем позицию текста
+            texts[characters.index(char)].set_position((text_x, text_y))
+
+        c = sum(1 for char in characters if char.laps_completed == laps_to_complete)
+        if c == len(characters):
+            return
+
+        return lines + texts
+
+    ani = animation.FuncAnimation(fig, update, frames=range(1000), init_func=init, blit=True)
+    plt.legend()
+    plt.show()
+
+
 def main():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Arkanoid")
-    clock = pygame.time.Clock()
+    characters_options = ["Таракан", "Собака", "Дед Мороз", "Человечек", "Мультяшный персонаж"]
+    print("Выберите участников гонки (введите номера через запятую):")
+    for i, character in enumerate(characters_options):
+        print(f"{i + 1}. {character}")
 
-    ball = Ball()
-    paddle = Paddle()
-    bricks = [Brick(x * (BRICK_WIDTH + 10) + 35, y * (BRICK_HEIGHT + 10) + 30) for x in range(10) for y in range(5)]
+    selected_indices = input("Ваш выбор: ")
+    selected_indices = [int(i) - 1 for i in selected_indices.split(",") if i.isdigit()]
 
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    if len(selected_indices) < 3 or len(selected_indices) > 5:
+        print("Выберите от 3 до 5 участников.")
+        return
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.move(-10)
-        if keys[pygame.K_RIGHT]:
-            paddle.move(10)
+    characters = [Character(characters_options[i]) for i in selected_indices]
+    laps_to_complete = int(input("Введите количество кругов для завершения: "))
+    lap_length = 100  # Длина круга (можно изменить)
 
-        ball.move()
+    race(characters, laps_to_complete, lap_length)
 
-        # Проверка на столкновение с ракеткой
-        if ball.rect.colliderect(paddle.rect):
-            ball.speed_y *= -1
-
-        # Проверка на столкновение с кирпичами
-        for brick in bricks[:]:
-            if ball.rect.colliderect(brick.rect):
-                bricks.remove(brick)
-                ball.speed_y *= -1
-
-        # Проверка на падение мяча
-        if ball.rect.top >= HEIGHT:
-            ball.reset()
-
-        # Отрисовка объектов
-        screen.fill(BLACK)
-        pygame.draw.ellipse(screen, WHITE, ball.rect)
-        pygame.draw.rect(screen, WHITE, paddle.rect)
-        for brick in bricks:
-            pygame.draw.rect(screen, RED, brick.rect)
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-    pygame.quit()
 
 if __name__ == "__main__":
     main()
